@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Category, RoutineStop, ScheduledActivity } from './types';
+import type { Category, ScheduledActivity, UserLocation } from './types';
 import { INITIAL_CATEGORIES } from './constants';
 import { geocodeAddresses } from './services/geocodingService';
+import { getCurrentLocation, watchLocation } from './services/locationService';
 import { scheduleActivities } from './utils/scheduler';
 import CategoryCard from './components/CategoryCard';
 import RoutineDisplay from './components/RoutineDisplay';
@@ -10,9 +11,14 @@ import { PlusIcon, SparklesIcon } from './components/icons';
 
 const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [randomizedRoutine, setRandomizedRoutine] = useState<RoutineStop[] | null>(null);
+  const [randomizedRoutine, setRandomizedRoutine] = useState<ScheduledActivity[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Tracking state
+  const [currentActivityIndex, setCurrentActivityIndex] = useState<number>(0);
+  const [showFullList, setShowFullList] = useState<boolean>(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   
   useEffect(() => {
     try {
@@ -41,6 +47,34 @@ const App: React.FC = () => {
     }
   }, [categories]);
 
+  // Auto-start location tracking on app load
+  useEffect(() => {
+    const startLocationTracking = async () => {
+      try {
+        const location = await getCurrentLocation();
+        setUserLocation(location);
+        
+        // Start watching location for continuous updates
+        const watchId = watchLocation(
+          setUserLocation,
+          (error) => console.error('Location watch error:', error)
+        );
+        
+        // Cleanup function to stop watching location
+        return () => {
+          if (navigator.geolocation) {
+            navigator.geolocation.clearWatch(watchId);
+          }
+        };
+      } catch (error) {
+        console.log('Location not available, continuing without tracking:', error);
+        // App will work in regular mode without location
+      }
+    };
+
+    startLocationTracking();
+  }, []);
+
   const addCategory = () => {
     const newCategory: Category = {
       id: `cat-${Date.now()}`,
@@ -68,6 +102,38 @@ const App: React.FC = () => {
     setCategories(prev => prev.filter(cat => cat.id !== categoryId));
   }, []);
 
+  const handleActivityComplete = useCallback((index: number) => {
+    if (!randomizedRoutine) return;
+    
+    // Mark activity as completed
+    const updatedRoutine = [...randomizedRoutine];
+    updatedRoutine[index] = { ...updatedRoutine[index], isCompleted: true };
+    setRandomizedRoutine(updatedRoutine);
+    
+    // Move to next activity
+    if (index + 1 < updatedRoutine.length) {
+      setCurrentActivityIndex(index + 1);
+    }
+  }, [randomizedRoutine]);
+
+  const handleActivitySkip = useCallback((index: number) => {
+    if (!randomizedRoutine) return;
+    
+    // Mark activity as skipped
+    const updatedRoutine = [...randomizedRoutine];
+    updatedRoutine[index] = { ...updatedRoutine[index], isSkipped: true };
+    setRandomizedRoutine(updatedRoutine);
+    
+    // Move to next activity
+    if (index + 1 < updatedRoutine.length) {
+      setCurrentActivityIndex(index + 1);
+    }
+  }, [randomizedRoutine]);
+
+  const handleToggleFullList = useCallback(() => {
+    setShowFullList(prev => !prev);
+  }, []);
+
   const handleRandomize = async () => {
     setIsLoading(true);
     setError(null);
@@ -92,18 +158,22 @@ const App: React.FC = () => {
         throw new Error("Unable to schedule any activities. Please check your time ranges and durations.");
       }
 
-      // Convert ScheduledActivity to RoutineStop for backward compatibility
+      // Geocode addresses and add coordinates to activities
       const addressesToGeocode = scheduledActivities.map(activity => activity.location);
       const coordinates = await geocodeAddresses(addressesToGeocode);
 
-      const routineWithCoords: RoutineStop[] = scheduledActivities.map((activity, index) => ({
-        categoryName: activity.categoryName,
-        time: activity.startTime,
-        location: activity.location,
+      const routineWithCoords: ScheduledActivity[] = scheduledActivities.map((activity, index) => ({
+        ...activity,
         coords: coordinates[index] ?? undefined,
       }));
       
       setRandomizedRoutine(routineWithCoords);
+      
+      // Auto-route to first activity if location tracking is available
+      if (userLocation && routineWithCoords.length > 0) {
+        setCurrentActivityIndex(0); // Start from the first activity
+        setShowFullList(false); // Hide full list to focus on current activity
+      }
 
     } catch (err: any) {
       setError(err.message || 'An unknown error occurred.');
@@ -164,7 +234,17 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          <RoutineDisplay routine={randomizedRoutine} isLoading={isLoading} error={error} />
+          <RoutineDisplay 
+            routine={randomizedRoutine} 
+            isLoading={isLoading} 
+            error={error}
+            currentActivityIndex={currentActivityIndex}
+            showFullList={showFullList}
+            userLocation={userLocation}
+            onToggleFullList={handleToggleFullList}
+            onActivityComplete={handleActivityComplete}
+            onActivitySkip={handleActivitySkip}
+          />
         </main>
         
         <footer className="text-center mt-12 text-gray-500 text-sm">

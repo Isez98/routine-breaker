@@ -33,6 +33,22 @@ export interface ScheduledActivity {
   duration: number;  // Duration in minutes
   coords?: Coordinates;
   repetitionIndex?: number; // Which repetition this is (0-based)
+  isCompleted?: boolean;    // Whether this activity has been completed
+  isSkipped?: boolean;      // Whether this activity has been skipped
+}
+
+export interface UserLocation {
+  lat: number;
+  lon: number;
+  accuracy?: number;
+  timestamp?: number;
+}
+
+export interface RoutineTracker {
+  currentActivityIndex: number;
+  isTrackingMode: boolean;
+  showFullList: boolean;
+  userLocation: UserLocation | null;
 }
 
 export interface TimeSlot {

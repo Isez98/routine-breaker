@@ -1,14 +1,22 @@
 
-import React from 'react';
-import type { RoutineStop } from '../types';
-import { MapPinIcon, ExternalLinkIcon, ShareIcon } from './icons';
+import React, { useState } from 'react';
+import type { ScheduledActivity, UserLocation } from '../types';
+import { MapPinIcon, ExternalLinkIcon, ShareIcon, EyeIcon, EyeSlashIcon, CheckIcon, SkipIcon, LocationIcon } from './icons';
 import InteractiveMap from './InteractiveMap';
+import ActivityTracker from './ActivityTracker';
+import RoutineList from './RoutineList';
 import { openInMaps, generateRouteDescription, isMobileDevice, isIOSDevice } from '../utils/mapUtils';
 
 interface RoutineDisplayProps {
-  routine: RoutineStop[] | null;
+  routine: ScheduledActivity[] | null;
   isLoading: boolean;
   error: string | null;
+  userLocation?: UserLocation | null;
+  currentActivityIndex?: number;
+  showFullList?: boolean;
+  onActivityComplete?: (index: number) => void;
+  onActivitySkip?: (index: number) => void;
+  onToggleFullList?: () => void;
 }
 
 const LoadingSpinner = () => (
@@ -19,7 +27,20 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const RoutineDisplay: React.FC<RoutineDisplayProps> = ({ routine, isLoading, error }) => {
+const RoutineDisplay: React.FC<RoutineDisplayProps> = ({ 
+  routine, 
+  isLoading, 
+  error,
+  userLocation,
+  currentActivityIndex = 0,
+  showFullList = true,
+  onActivityComplete,
+  onActivitySkip,
+  onToggleFullList
+}) => {
+  // Tracking mode is automatically determined by location availability
+  const isTrackingMode = Boolean(userLocation);
+  
   const handleOpenInMaps = () => {
     if (routine) {
       openInMaps(routine);
@@ -85,6 +106,17 @@ const RoutineDisplay: React.FC<RoutineDisplayProps> = ({ routine, isLoading, err
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-blue-400 mb-4 sm:mb-0">Your Randomized Routine</h2>
         <div className="flex space-x-3">
+          {/* List Toggle (only show when tracking) */}
+          {isTrackingMode && (
+            <button
+              onClick={onToggleFullList}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200"
+            >
+              {showFullList ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+              <span>{showFullList ? 'Hide List' : 'Show List'}</span>
+            </button>
+          )}
+
           <button
             onClick={handleOpenInMaps}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
@@ -101,29 +133,58 @@ const RoutineDisplay: React.FC<RoutineDisplayProps> = ({ routine, isLoading, err
           </button>
         </div>
       </div>
-      <div className="grid md:grid-cols-2 gap-8">
-        <div>
-            <h3 className="text-xl font-semibold mb-4 border-b border-gray-600 pb-2">Itinerary</h3>
-            <ul className="space-y-4">
-            {routine.map((stop, index) => (
-                <li key={index} className="flex items-start space-x-4 p-3 bg-gray-700/50 rounded-md">
-                <div className="flex flex-col items-center">
-                    <span className="text-xl font-bold text-blue-400">{stop.time}</span>
-                    <div className="w-px h-full bg-gray-600 my-1"></div>
-                </div>
-                <div>
-                    <p className="font-semibold text-lg">{stop.categoryName}</p>
-                    <p className="text-gray-300 flex items-center"><MapPinIcon className="w-4 h-4 mr-2"/>{stop.location}</p>
-                </div>
-                </li>
-            ))}
-            </ul>
+
+      {/* Content based on tracking mode */}
+      {isTrackingMode ? (
+        <div className="space-y-6">
+          {/* Activity Tracker */}
+          {onActivityComplete && onActivitySkip && (
+            <ActivityTracker
+              routine={routine}
+              currentActivityIndex={currentActivityIndex}
+              userLocation={userLocation}
+              onActivityComplete={onActivityComplete}
+              onActivitySkip={onActivitySkip}
+            />
+          )}
+
+          {/* Map */}
+          <div>
+            <h3 className="text-xl font-semibold mb-4 border-b border-gray-600 pb-2">Current Route</h3>
+            <InteractiveMap 
+              routine={routine} 
+              userLocation={userLocation}
+              currentActivityIndex={currentActivityIndex}
+              isTrackingMode={true}
+            />
+          </div>
+
+          {/* Full List (toggleable) */}
+          {showFullList && (
+            <div className="border-t border-gray-600 pt-6">
+              <h3 className="text-xl font-semibold mb-4">Full Itinerary</h3>
+              <RoutineList 
+                routine={routine}
+                currentActivityIndex={currentActivityIndex}
+                onActivityComplete={onActivityComplete}
+                onActivitySkip={onActivitySkip}
+              />
+            </div>
+          )}
         </div>
-        <div>
+      ) : (
+        /* Regular Mode */
+        <div className="grid md:grid-cols-2 gap-8">
+          <div>
+            <h3 className="text-xl font-semibold mb-4 border-b border-gray-600 pb-2">Itinerary</h3>
+            <RoutineList routine={routine} />
+          </div>
+          <div>
             <h3 className="text-xl font-semibold mb-4 border-b border-gray-600 pb-2">Route Map</h3>
             <InteractiveMap routine={routine} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
