@@ -17,7 +17,6 @@ const App: React.FC = () => {
   
   // Tracking state
   const [currentActivityIndex, setCurrentActivityIndex] = useState<number>(0);
-  const [showFullList, setShowFullList] = useState<boolean>(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   
   useEffect(() => {
@@ -130,10 +129,6 @@ const App: React.FC = () => {
     }
   }, [randomizedRoutine]);
 
-  const handleToggleFullList = useCallback(() => {
-    setShowFullList(prev => !prev);
-  }, []);
-
   const handleRandomize = async () => {
     setIsLoading(true);
     setError(null);
@@ -172,7 +167,6 @@ const App: React.FC = () => {
       // Auto-route to first activity if location tracking is available
       if (userLocation && routineWithCoords.length > 0) {
         setCurrentActivityIndex(0); // Start from the first activity
-        setShowFullList(false); // Hide full list to focus on current activity
       }
 
     } catch (err: any) {
@@ -239,9 +233,7 @@ const App: React.FC = () => {
             isLoading={isLoading} 
             error={error}
             currentActivityIndex={currentActivityIndex}
-            showFullList={showFullList}
             userLocation={userLocation}
-            onToggleFullList={handleToggleFullList}
             onActivityComplete={handleActivityComplete}
             onActivitySkip={handleActivitySkip}
           />

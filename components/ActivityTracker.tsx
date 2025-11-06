@@ -79,7 +79,7 @@ const ActivityTracker: React.FC<ActivityTrackerProps> = ({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-2xl font-bold text-blue-400">Current Activity</h3>
           <div className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-sm">
-            {currentActivity.time}
+            {currentActivity.startTime}
           </div>
         </div>
 
@@ -113,7 +113,7 @@ const ActivityTracker: React.FC<ActivityTrackerProps> = ({
             className="flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105"
           >
             <CheckIcon className="w-5 h-5" />
-            <span>Complete</span>
+            <span>Done</span>
           </button>
           
           <button

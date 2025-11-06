@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import type { RoutineStop, UserLocation } from '../types';
+import type { ScheduledActivity, UserLocation } from '../types';
 import L from 'leaflet';
 
 // Fix for default markers not showing in React-Leaflet
@@ -65,7 +65,7 @@ const createUserLocationIcon = () => {
 };
 
 interface InteractiveMapProps {
-  routine: RoutineStop[];
+  routine: ScheduledActivity[];
   userLocation?: UserLocation | null;
   currentActivityIndex?: number;
   isTrackingMode?: boolean;
@@ -87,9 +87,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     );
   }
 
-  // In tracking mode, show only current activity and user location
-  const displayStops = isTrackingMode 
-    ? validStops.slice(currentActivityIndex, currentActivityIndex + 1)
+  // Show only current activity when tracking, or all activities when planning
+  const displayStops = isTrackingMode && routine[currentActivityIndex]
+    ? [routine[currentActivityIndex]]
     : validStops;
 
   // Calculate map bounds including user location
@@ -130,7 +130,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     [maxLat + latPadding, maxLon + lonPadding]
   ];
 
-  // Create polyline coordinates (only if not in tracking mode or if showing route)
+  // Create route from user to current activity, or full route when planning
   const routeCoordinates: [number, number][] = isTrackingMode 
     ? (userLocation && displayStops[0]?.coords ? [
         [userLocation.lat, userLocation.lon],
@@ -187,24 +187,24 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
         
         {/* Activity markers */}
         {displayStops.map((stop, index) => {
-          const actualIndex = isTrackingMode ? currentActivityIndex : index;
-          const displayNumber = isTrackingMode ? 'NOW' : (actualIndex + 1);
+          const isCurrentActivity = isTrackingMode;
+          const displayNumber = isCurrentActivity ? 'NOW' : (index + 1);
           
           return (
             <Marker
-              key={`${stop.categoryName}-${actualIndex}`}
+              key={`${stop.categoryName}-${isCurrentActivity ? currentActivityIndex : index}`}
               position={[stop.coords!.lat, stop.coords!.lon]}
               icon={createCustomIcon(
-                getIconColor(actualIndex, validStops.length), 
+                isCurrentActivity ? '#F59E0B' : getIconColor(index, validStops.length), 
                 typeof displayNumber === 'number' ? displayNumber : undefined
               )}
             >
               <Popup>
                 <div className="text-center">
                   <div className="font-bold text-lg">{stop.categoryName}</div>
-                  <div className="text-sm text-gray-600">{stop.time}</div>
+                  <div className="text-sm text-gray-600">{stop.startTime}</div>
                   <div className="text-sm mt-1">{stop.location}</div>
-                  {isTrackingMode && (
+                  {isCurrentActivity && (
                     <div className="text-xs mt-2 px-2 py-1 bg-orange-100 text-orange-800 rounded">
                       Current Activity
                     </div>
